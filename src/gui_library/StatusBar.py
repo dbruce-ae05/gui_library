@@ -1,10 +1,9 @@
 import tkinter
 from collections import namedtuple
+from datetime import datetime
 from tkinter.constants import HORIZONTAL
 from tkinter.ttk import Progressbar
 from typing import Literal, TypeAlias
-
-import pendulum
 
 StatusBarSide: TypeAlias = Literal["left", "right"]
 StatusBarStatus = namedtuple("status", ["timestamp", "message", "side", "style"])
@@ -75,7 +74,7 @@ class StatusBar(tkinter.Frame):
         if isinstance(message, list):
             message = " | ".join(message)
 
-        status = StatusBarStatus(pendulum.now().naive(), message, side, style)
+        status = StatusBarStatus(datetime.now(), message, side, style)
 
         if append_to_log:
             self.status_log.append(status)

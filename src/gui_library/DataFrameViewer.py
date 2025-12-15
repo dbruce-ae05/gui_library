@@ -1,7 +1,7 @@
 import tkinter
 from tkinter import font
 from tkinter.constants import CENTER, END, E, W
-from tkinter.ttk import Frame, Treeview
+from tkinter.ttk import Entry, Frame, Treeview
 from typing import Any
 from uuid import uuid4
 
@@ -127,6 +127,88 @@ class DataFrameViewer(Frame):
 
     def treeview_focus(self, event: tkinter.Event):
         self.parent.dfv_event_handler(event)
+
+    def treeview_event_handler(
+        self, treeview: Treeview, event: tkinter.Event, double: bool = False
+    ):
+        if event.type == tkinter.EventType.ButtonPress and even.num == 1 and double:
+            try:
+                self.entrypopup.destroy()
+            except AttributeError:
+                pass
+
+            rowid = treeview.identify_row(event.y)
+            column = treeview.identify_column(event.x)
+
+            if not rowid:
+                return
+
+            x, y, width, height = treeview.bbox(item=rowid, column=column)
+            x += treeview.winfo_x()  # type: ignore
+            pady = height // 2  # type:ignore
+
+            row = treeview.item(rowid)
+            column = int(column.replace("#", ""))
+            if column == 0:
+                text = row["text"]
+            else:
+                text = row["values"][column - 1]
+
+            self.entrypopup = TableEntryPopup(
+                parent=self,
+                treeview=treeview,
+                iid=rowid,
+                column=column,
+                text=text,
+            )
+
+            self.entrypopup.place(
+                x=x,
+                y=y + pady,  # type: ignore
+                width=width,
+                height=height,
+                anchor="w",
+            )
+
+
+class TableEntryPopup(Entry):
+    def __init__(self, parent, treeview, iid, column, text, **kw):
+        super().__init__(treeview, **kw)
+        self.parent = parent
+        self.tv = treeview
+        self.iid = iid
+        self.column = column
+        self.text = text
+
+        self.insert(0, text)
+        self["exportselection"] = False
+
+        self.focus_force()
+        self.select_all()
+        self.bind("<Return>", self.on_return)
+        self.bind("<Tab>", self.on_return)
+        self.bind("<Control-a>", self.select_all)
+        self.bind("<Escape>", lambda *ignore: self.destroy())
+
+    def on_return(self, event: tkinter.Event):
+        rowid = self.tv.focus()
+        new_val = self.get()
+
+        if self.column == 0:
+            self.tv.item(rowid, text=new_val)
+        else:
+            vals = self.tv.item(rowid, "values")
+            vals = list(vals)
+            vals[self.column - 1] = new_val
+            self.tv.item(rowid, values=vals)
+
+        self.parent.entrypopup_write(rowid, self.tv.item(rowid))
+        self.destroy()
+
+    def select_all(self, *ignore):
+        self.selection_range(0, "end")
+        return "break"
+        # self.tree.bind("<Key>", self.keypress_event_handler)
 
 
 class DataFrameViewerApp(tkinter.Tk):
