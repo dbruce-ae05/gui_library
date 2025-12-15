@@ -1,21 +1,96 @@
 [project]
-name = "gui-library"
+name = "gui_library"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "dbruce-ae05",email = "dbruce.ae05@gmail.com"}
-]
+authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "pendulum (>=3.1.0,<4.0.0)",
-    "polars (>=1.35.1,<2.0.0)"
-]
-
+requires-python = ">=3.13, <3.15"
+dependencies = ["dynaconf (>=3.2.12,<4.0.0)"]
+logging_level = "DEBUG"
 [tool.poetry]
-packages = [{include = "gui_library", from = "src"}]
+packages = [{ include = "gui_library", from = "src" }]
 
+[project.scripts]
+gui_library = "gui_library.load_gui:load_gui"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+  "pytest (>=9.0.2,<10.0.0)",
+  "ruff (>=0.14.9,<0.15.0)",
+  "black (>=25.12.0,<26.0.0)",
+  "poethepoet (>=0.38.0,<0.39.0)",
+  "pyinstaller (>=6.17.0,<7.0.0)",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: marks tests as slow (deselct with -m \"not slow\"')",
+  "serial",
+]
+
+[tool.poe.tasks]
+[tool.poe.tasks.test_install]
+sequence = [
+  "sync",
+  "ruffcheck",
+  "ruffformat",
+  "pytest",
+  "delete_logs",
+  "pipx_install_edit",
+]
+
+[tool.poe.tasks.test]
+sequence = ["sync", "ruffcheck", "ruffformat", "pytest", "delete_logs"]
+
+[tool.poe.tasks.pipx_install]
+cmd = "pipx install . --force"
+
+[tool.poe.tasks.pipx_install_edit]
+cmd = "pipx install . --editable --force"
+
+[tool.poe.tasks.sync]
+script = "src.other.publish_actions:sync_with_pyproject"
+print_result = true
+
+[tool.poe.tasks.delete_logs]
+script = "src.other.publish_actions:delete_logs"
+print_result = true
+
+[tool.poe.tasks.pyinstaller_gui]
+script = "src.other.publish_actions:build_executable_gui"
+print_result = true
+
+[tool.poe.tasks.install]
+cmd = "poetry install"
+
+[tool.poe.tasks.build]
+cmd = "poetry build"
+
+[tool.poe.tasks.pytest]
+cmd = "pytest -s --durations=0"
+
+[tool.poe.tasks.pytest_all]
+cmd = "pytest -s --runslow --durations=0"
+
+[tool.poe.tasks.ruffcheck]
+cmd = "ruff check"
+
+[tool.poe.tasks.ruffformat]
+cmd = "ruff format"
+
+[tool.poe.tasks.rename_project]
+shell = 'find . -type f | grep -v .git | grep -v .ruff_cache | grep -v .pytest_cache | grep -v __pycache__ | grep -v .DS_Store | grep -v poetry.lock | xargs sed -i "" "s/gui_library/${name}/g" && mv src/gui_library src/${name}'
+args = [{ name = "name", default = "." }]
+
+[tool.ruff]
+line-length = 120
+fix = true
+show-fixes = true
+lint.ignore = ["E701", "E702"]
+
+[tool.ruff.format]
+docstring-code-line-length = 120
