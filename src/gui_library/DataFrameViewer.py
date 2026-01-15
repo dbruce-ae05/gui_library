@@ -1,11 +1,13 @@
 import tkinter
-from tkinter import font
+from tkinter import BooleanVar, Checkbutton, font
 from tkinter.constants import CENTER, END, E, W
 from tkinter.ttk import Entry, Frame, Treeview
 from typing import Any
 from uuid import uuid4
 
 import polars
+
+from gui_library.StatusBar import StatusBar
 
 
 class DataFrameViewer(Frame):
@@ -68,9 +70,7 @@ class DataFrameViewer(Frame):
 
             values = ["" if v is None else v for v in values]
 
-            self.treeview.insert(
-                parent="", index=END, text=text, values=values, iid=iid
-            )
+            self.treeview.insert(parent="", index=END, text=text, values=values, iid=iid)
 
     def autofit_columns(self):
         f = font.nametofont("TkDefaultFont")
@@ -128,9 +128,7 @@ class DataFrameViewer(Frame):
     def treeview_focus(self, event: tkinter.Event):
         self.parent.dfv_event_handler(event)
 
-    def treeview_event_handler(
-        self, treeview: Treeview, event: tkinter.Event, double: bool = False
-    ):
+    def treeview_event_handler(self, treeview: Treeview, event: tkinter.Event, double: bool = False):
         if event.type == tkinter.EventType.ButtonPress and even.num == 1 and double:
             try:
                 self.entrypopup.destroy()
@@ -215,16 +213,60 @@ class DataFrameViewerApp(tkinter.Tk):
     def __init__(self, title: str, df: polars.DataFrame):
         super().__init__()
         self.title(title)
-        DataFrameViewer(self, df).grid(sticky="nsew")
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
+        self.df = df
+
+        self.make_widgets()
+        self.make_bindings()
+        self.update_filter()
+
+    # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
+
+    def make_widgets(self):
+        self.checkmarks: dict[str, Checkbutton] = dict()
+        self.checkmarkvalues: dict[str, BooleanVar] = dict()
+
+        self.entry: Entry = Entry(master=self)
+        self.entry.grid(row=0, column=0, rowspan=1, columnspan=1, sticky="nsew", padx=5, pady=2)
+
+        for i, col in enumerate(self.df.columns):
+            self.checkmarkvalues[col] = BooleanVar(self)
+            self.checkmarks[col] = Checkbutton(
+                self,
+                text=col,
+                variable=self.checkmarkvalues[col],
+                command=self.update_filter,
+            )
+            self.checkmarks[col].select()
+            self.checkmarks[col].grid(row=0, column=i + 1, rowspan=1, columnspan=1, padx=5, pady=2, sticky="nsew")
+            self.columnconfigure(i + 1, weight=0)
+
+        self.dfv = DataFrameViewer(self, self.df)
+        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew", padx=5, pady=2)
+
+        self.status_bar = StatusBar(self)
+        self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
+        self.status_bar.update_status("Initialized Status Bar")
+
+    def make_bindings(self):
+        self.entry.bind("<KeyRelease>", self.update_filter)
+
+    def update_filter(self, event: tkinter.Event | None = None):
+        filter_columns = [key for key, value in self.checkmarkvalues.items() if value.get()]
+        pattern = self.entry.get()
+
+        results = self.df
+        if pattern:
+            results = self.df.filter(
+                polars.any_horizontal(polars.col(filter_columns).cast(polars.String).str.contains(f"(?i){pattern}"))
+            )
+
+        self.status_bar.update_status(f"{results.shape[0]} results")
+        self.dfv.update_data(df=results)
 
     def dfv_event_handler(self, event: tkinter.Event):
         pass
 
 
-def show_dataframeviewer(
-    title: str = "Polars DataFrame Viewer", df: polars.DataFrame = polars.DataFrame()
-):
+def show_dataframeviewer(title: str = "Polars DataFrame Viewer", df: polars.DataFrame = polars.DataFrame()):
     app = DataFrameViewerApp(df=df, title=title)
     app.mainloop()
