@@ -1,3 +1,4 @@
+import polars
 import pytest
 from pytest import Config, Item, Parser
 
@@ -26,3 +27,15 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]):
 @pytest.fixture
 def settings():
     return settings_generator()
+
+
+@pytest.fixture
+def test_dataframe():
+    data = {
+        "column_1": [1, 2, 3, 4, 5],
+        "column_2": [1, 3, 5, 7, 9],
+        "column_3": [2, 4, 6, 8, 10],
+        "column_4": [11, 12, 13, 14, 15],
+    }
+
+    return polars.DataFrame(data)

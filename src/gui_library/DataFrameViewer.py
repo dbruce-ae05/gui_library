@@ -2,12 +2,14 @@ import tkinter
 from tkinter import BooleanVar, Checkbutton, font
 from tkinter.constants import CENTER, END, E, W
 from tkinter.ttk import Entry, Frame, Treeview
-from typing import Any
+from typing import Any, Literal, TypeAlias
 from uuid import uuid4
 
 import polars
 
 from gui_library.StatusBar import StatusBar
+
+DataFrameViewerFilterTypes: TypeAlias = Literal["all", "by_column"]
 
 
 class DataFrameViewer(Frame):
@@ -75,19 +77,19 @@ class DataFrameViewer(Frame):
     def autofit_columns(self):
         f = font.nametofont("TkDefaultFont")
         bf = font.Font(family="Helvetica", size=12, weight="bold")
-        col_widths = dict()
+        self.col_widths = dict()
 
         for col in self.df.columns:
-            col_widths[col] = int(bf.measure(str(col)) * 1.2)
+            self.col_widths[col] = int(bf.measure(str(col)) * 1.2)
 
         for row in self.df.iter_rows(named=True):
             for key, value in row.items():
                 if key in self.df.columns:
-                    old_width = col_widths[key]
+                    old_width = self.col_widths[key]
                     new_width = int(f.measure(str(value)) * 1.2)
-                    col_widths[key] = max(old_width, new_width)
+                    self.col_widths[key] = max(old_width, new_width)
 
-        for i, width in enumerate(col_widths.values()):
+        for i, width in enumerate(self.col_widths.values()):
             self.treeview.column(f"#{i}", width=width)
 
     def autoalign_columns(self):
@@ -99,6 +101,7 @@ class DataFrameViewer(Frame):
             else:
                 anchor = W
 
+            print(f"{i}, anchor={anchor}")
             self.treeview.column(f"#{i}", anchor=anchor)
 
     def focus(self) -> Any:
@@ -129,7 +132,7 @@ class DataFrameViewer(Frame):
         self.parent.dfv_event_handler(event)
 
     def treeview_event_handler(self, treeview: Treeview, event: tkinter.Event, double: bool = False):
-        if event.type == tkinter.EventType.ButtonPress and even.num == 1 and double:
+        if event.type == tkinter.EventType.ButtonPress and event.num == 1 and double:
             try:
                 self.entrypopup.destroy()
             except AttributeError:
@@ -210,10 +213,12 @@ class TableEntryPopup(Entry):
 
 
 class DataFrameViewerApp(tkinter.Tk):
-    def __init__(self, title: str, df: polars.DataFrame):
+    def __init__(self, title: str, df: polars.DataFrame, filters: DataFrameViewerFilterTypes = "all"):
         super().__init__()
         self.title(title)
         self.df = df
+        self.filters = filters
+        self.dfv = DataFrameViewer(self, self.df)
 
         self.make_widgets()
         self.make_bindings()
@@ -222,6 +227,23 @@ class DataFrameViewerApp(tkinter.Tk):
     # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
 
     def make_widgets(self):
+        filter_dict: dict = {
+            "all": self.make_all_filters,
+            "by_column": self.make_by_column_filters,
+        }
+        filter_dict[self.filters]()
+
+        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew", padx=5, pady=2)
+
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=0)
+
+        self.status_bar = StatusBar(self)
+        self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
+        self.status_bar.update_status("Initialized Status Bar")
+
+    def make_all_filters(self):
         self.checkmarks: dict[str, Checkbutton] = dict()
         self.checkmarkvalues: dict[str, BooleanVar] = dict()
 
@@ -240,17 +262,33 @@ class DataFrameViewerApp(tkinter.Tk):
             self.checkmarks[col].grid(row=0, column=i + 1, rowspan=1, columnspan=1, padx=5, pady=2, sticky="nsew")
             self.columnconfigure(i + 1, weight=0)
 
-        self.dfv = DataFrameViewer(self, self.df)
-        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew", padx=5, pady=2)
-
-        self.status_bar = StatusBar(self)
-        self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
-        self.status_bar.update_status("Initialized Status Bar")
-
-    def make_bindings(self):
         self.entry.bind("<KeyRelease>", self.update_filter)
 
+    def make_by_column_filters(self):
+        self.column_entries: dict[str, Entry] = dict()
+
+        for i, col in enumerate(self.df.columns):
+            self.column_entries[col] = Entry(master=self)  # , width=self.dfv.col_widths[col])
+            self.column_entries[col].grid(
+                row=0, column=i, rowspan=1, columnspan=1, padx=0, pady=2, sticky="nsew", ipadx=self.dfv.col_widths[col]
+            )
+            self.columnconfigure(i, weight=1)
+            self.column_entries[col].bind("<KeyRelease>", self.update_filter)
+
+    def make_bindings(self):
+        pass
+
     def update_filter(self, event: tkinter.Event | None = None):
+        filter_dict: dict = {
+            "all": self.update_all_filter,
+            "by_column": self.update_by_column_filter,
+        }
+        results = filter_dict[self.filters]()
+
+        self.status_bar.update_status(f"{results.shape[0]} results")
+        self.dfv.update_data(df=results)
+
+    def update_all_filter(self) -> polars.DataFrame:
         filter_columns = [key for key, value in self.checkmarkvalues.items() if value.get()]
         pattern = self.entry.get()
 
@@ -260,13 +298,29 @@ class DataFrameViewerApp(tkinter.Tk):
                 polars.any_horizontal(polars.col(filter_columns).cast(polars.String).str.contains(f"(?i){pattern}"))
             )
 
-        self.status_bar.update_status(f"{results.shape[0]} results")
-        self.dfv.update_data(df=results)
+        return results
+
+    def update_by_column_filter(self):
+        patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
+
+        results = self.df
+        filters: list = list()
+        for col, pattern in patterns.items():
+            filters.append(polars.col(col).cast(polars.String).str.contains(f"(?i){pattern}"))
+
+        if filters:
+            results = self.df.filter(filters)
+
+        return results
 
     def dfv_event_handler(self, event: tkinter.Event):
         pass
 
 
-def show_dataframeviewer(title: str = "Polars DataFrame Viewer", df: polars.DataFrame = polars.DataFrame()):
-    app = DataFrameViewerApp(df=df, title=title)
+def show_dataframeviewer(
+    title: str = "Polars DataFrame Viewer",
+    df: polars.DataFrame = polars.DataFrame(),
+    filter: DataFrameViewerFilterTypes = "all",
+):
+    app = DataFrameViewerApp(df=df, title=title, filters=filter)
     app.mainloop()

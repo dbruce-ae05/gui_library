@@ -39,9 +39,7 @@ class StatusBar(tkinter.Frame):
 
     def update_progress(self, numerator: int, denominator: int, message: str):
         if not self.progress:
-            self.progress = Progressbar(
-                self, mode="determinate", length=100, orient=HORIZONTAL
-            )
+            self.progress = Progressbar(self, mode="determinate", length=100, orient=HORIZONTAL)
 
         self.progress.grid(row=0, column=2, sticky="nsew")
         self.columnconfigure(2, weight=1)
@@ -80,9 +78,7 @@ class StatusBar(tkinter.Frame):
             self.status_log.append(status)
 
         if side == "left":
-            self.left.config(
-                text=f"{status.timestamp.strftime('%H:%M:%S')} | {status.message}"
-            )
+            self.left.config(text=f"{status.timestamp.strftime('%H:%M:%S')} | {status.message}")
         elif side == "right":
             self.right.config(text=status.message)
 
