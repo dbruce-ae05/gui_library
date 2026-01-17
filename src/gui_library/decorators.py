@@ -56,8 +56,6 @@ def log_func_time(func):
 
 
 def log_func_start_finish_flags(func):
-    start_count = perf_counter()
-
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         funcname = f"{func.__module__}/{func.__qualname__}"
@@ -65,6 +63,7 @@ def log_func_start_finish_flags(func):
         start = f"START {funcname}".center(40)
         finish = f"FINISH {funcname}".center(40)
         uid = uuid4().hex
+        start_count = perf_counter()
         try:
             logger.info(f"{flag} {start} {flag} {uid=}", extra={"funcname": funcname})
             result = func(*args, **kwargs)

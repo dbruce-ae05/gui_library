@@ -5,7 +5,7 @@
     "simple": {
       "format": "[%(asctime)s] %(levelname)s module: %(module)s, line %(lineno)d -> %(message)s",
       "datefmt": "%Y-%m-%dT%H:%M:%S%z"
-    },
+    }
   },
   "handlers": {
     "stderr": {
@@ -21,21 +21,13 @@
       "filename": "gui_library/logs/log.log",
       "maxBytes": 1000000,
       "backupCount": 3
-    },
-    "queue_handler": {
-      "class": "logging.handlers.QueueHandler",
-      "handlers": [
-        "stderr",
-        "file_json"
-      ],
-      "respect_handler_level": true
     }
   },
   "loggers": {
     "root": {
       "level": "DEBUG",
       "handlers": [
-        "queue_handler"
+        "file_debug", "stderr"
       ]
     }
   }
