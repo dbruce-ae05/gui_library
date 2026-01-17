@@ -265,11 +265,6 @@ class DataFrameViewerApp(tkinter.Tk):
 
         self.update_family_tree()
 
-        self.dfv = DataFrameViewer(
-            self,
-            df=self.df,
-        )
-
         self.make_widgets()
         self.make_bindings()
         self.update_filter()
@@ -283,11 +278,13 @@ class DataFrameViewerApp(tkinter.Tk):
         }
         filter_dict[self.filters]()
 
-        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew", padx=5, pady=2)
+        self.dfv = DataFrameViewer(self, df=self.df)
+        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns), sticky="nsew", padx=5, pady=2)
 
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=0)
+        self.columnconfigure(0, weight=1)
 
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
@@ -318,12 +315,10 @@ class DataFrameViewerApp(tkinter.Tk):
     def make_by_column_filters(self):
         self.column_entries: dict[str, Entry] = dict()
 
-        df = self.df.drop(["iid", "parent"])
+        df = self.df.drop(["iid", "parent", "treepath"])
         for i, col in enumerate(df.columns):
             self.column_entries[col] = Entry(master=self)  # , width=self.dfv.col_widths[col])
-            self.column_entries[col].grid(
-                row=0, column=i, rowspan=1, columnspan=1, padx=0, pady=2, sticky="nsew", ipadx=self.dfv.col_widths[col]
-            )
+            self.column_entries[col].grid(row=0, column=i, rowspan=1, columnspan=1, padx=0, pady=2, sticky="nsew")
             self.columnconfigure(i, weight=1)
             self.column_entries[col].bind("<KeyRelease>", self.update_filter)
 
@@ -361,8 +356,12 @@ class DataFrameViewerApp(tkinter.Tk):
 
     @log_func_start_finish_flags
     def update_all_filter(self) -> polars.DataFrame:
-        filter_columns = [key for key, value in self.checkmarkvalues.items() if value.get()]
         pattern = self.entry.get()
+
+        if not pattern:
+            return self.df
+
+        filter_columns = [key for key, value in self.checkmarkvalues.items() if value.get()]
 
         results = self.df
         if pattern:
@@ -377,9 +376,15 @@ class DataFrameViewerApp(tkinter.Tk):
         patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
 
         results = self.df
+
+        if not any(patterns.values()):
+            return results
+
         filters: list = list()
         for col, pattern in patterns.items():
             filters.append(polars.col(col).cast(polars.String).str.contains(f"(?i){pattern}"))
+
+        print(filters)
 
         if filters:
             results = self.df.filter(filters)
