@@ -1,6 +1,6 @@
 [project]
 name = "gui_library"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
@@ -45,7 +45,7 @@ sequence = [
 ]
 
 [tool.poe.tasks.test]
-sequence = ["sync", "ruffcheck", "ruffformat", "pytest", "delete_logs"]
+sequence = ["sync", "ruffcheck", "ruffformat", "pytest"]
 
 [tool.poe.tasks.pipx_install]
 cmd = "pipx install . --force"
