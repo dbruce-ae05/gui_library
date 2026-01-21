@@ -1,12 +1,11 @@
 [project]
 name = "gui_library"
-version = "0.2.0"
+version = "0.4.0"
 description = ""
 authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.13, <3.15"
-dependencies = ["dynaconf (>=3.2.12,<4.0.0)", "treelib (>=1.8.0,<2.0.0)"]
-logging_level = "DEBUG"
+requires-python = ">=3.10, <3.15"
+dependencies = ["treelib (>=1.8.0,<2.0.0)"]
 [tool.poetry]
 packages = [{ include = "gui_library", from = "src" }]
 
@@ -21,10 +20,8 @@ build-backend = "poetry.core.masonry.api"
 dev = [
   "pytest (>=9.0.2,<10.0.0)",
   "ruff (>=0.14.9,<0.15.0)",
-  "black (>=25.12.0,<26.0.0)",
   "poethepoet (>=0.38.0,<0.39.0)",
-  "pyinstaller (>=6.17.0,<7.0.0)",
-  "fastexcel (>=0.18.0,<0.19.0)",
+  "polars (>=1.37.1,<2.0.0)",
 ]
 
 [tool.pytest.ini_options]
@@ -35,17 +32,10 @@ markers = [
 
 [tool.poe.tasks]
 [tool.poe.tasks.test_install]
-sequence = [
-  "sync",
-  "ruffcheck",
-  "ruffformat",
-  "pytest",
-  "delete_logs",
-  "pipx_install_edit",
-]
+sequence = ["sync", "ruffcheck", "ruffformat", "pytest", "pipx_install_edit"]
 
 [tool.poe.tasks.test]
-sequence = ["sync", "ruffcheck", "ruffformat", "pytest"]
+sequence = ["sync", "ruffcheck", "ruffformat", "pytest", "build"]
 
 [tool.poe.tasks.pipx_install]
 cmd = "pipx install . --force"
@@ -55,14 +45,6 @@ cmd = "pipx install . --editable --force"
 
 [tool.poe.tasks.sync]
 script = "src.other.publish_actions:sync_with_pyproject"
-print_result = true
-
-[tool.poe.tasks.delete_logs]
-script = "src.other.publish_actions:delete_logs"
-print_result = true
-
-[tool.poe.tasks.pyinstaller_gui]
-script = "src.other.publish_actions:build_executable_gui"
 print_result = true
 
 [tool.poe.tasks.install]

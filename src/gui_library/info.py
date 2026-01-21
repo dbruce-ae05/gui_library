@@ -3,7 +3,7 @@ import sysconfig
 import tomllib
 from pathlib import Path
 
-from src.gui_library.library import find
+from gui_library.library import find
 
 thispath = Path(__file__).parent
 

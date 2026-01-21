@@ -2,8 +2,6 @@ import polars
 import pytest
 from pytest import Config, Item, Parser
 
-from src.gui_library.config import settings_generator
-
 
 def pytest_addoption(parser: Parser):
     parser.addoption("--runslow", action="store_true", default=False, help="run slow tests")
@@ -22,11 +20,6 @@ def pytest_collection_modifyitems(config: Config, items: list[Item]):
     for item in items:
         if "slow" in item.keywords:
             item.add_marker(skip_slow)
-
-
-@pytest.fixture
-def settings():
-    return settings_generator()
 
 
 @pytest.fixture

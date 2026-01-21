@@ -9,7 +9,6 @@ import polars
 from treelib.node import Node
 from treelib.tree import Tree
 
-from gui_library.decorators import log_func_start_finish_flags
 from gui_library.StatusBar import StatusBar
 
 DataFrameViewerFilterTypes: TypeAlias = Literal["all", "by_column"]
@@ -325,7 +324,6 @@ class DataFrameViewerApp(tkinter.Tk):
     def make_bindings(self):
         pass
 
-    @log_func_start_finish_flags
     def update_filter(self, event: tkinter.Event | None = None):
         filter_dict: dict = {
             "all": self.update_all_filter,
@@ -354,7 +352,6 @@ class DataFrameViewerApp(tkinter.Tk):
         self.status_bar.update_status(f"{results.shape[0]} matches out of {self.df.shape[0]} lines")
         self.dfv.update_data(df=results)
 
-    @log_func_start_finish_flags
     def update_all_filter(self) -> polars.DataFrame:
         pattern = self.entry.get()
 
@@ -371,7 +368,6 @@ class DataFrameViewerApp(tkinter.Tk):
 
         return results
 
-    @log_func_start_finish_flags
     def update_by_column_filter(self) -> polars.DataFrame:
         patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
 
@@ -391,7 +387,6 @@ class DataFrameViewerApp(tkinter.Tk):
 
         return results
 
-    @log_func_start_finish_flags
     def update_family_tree(self):
         if "treepath" in self.df.columns:
             self.df = self.df.drop(["treepath"])
