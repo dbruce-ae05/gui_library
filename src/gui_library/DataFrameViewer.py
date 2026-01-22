@@ -289,6 +289,13 @@ class DataFrameViewerApp(tkinter.Tk):
         self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
         self.status_bar.update_status("Initialized Status Bar")
 
+        self.bind("<<StatusBar.DoubleClick.Left>>", self.show_status_log)
+        self.bind("<<StatusBar.DoubleClick.Right>>", self.show_status_log)
+
+    def show_status_log(self, event: tkinter.Event):
+        df = polars.DataFrame(self.status_bar.status_log)
+        show_dataframeviewer(title="Status Log", df=df)
+
     def make_all_filters(self):
         self.checkmarks: dict[str, Checkbutton] = dict()
         self.checkmarkvalues: dict[str, BooleanVar] = dict()
@@ -379,8 +386,6 @@ class DataFrameViewerApp(tkinter.Tk):
         filters: list = list()
         for col, pattern in patterns.items():
             filters.append(polars.col(col).cast(polars.String).str.contains(f"(?i){pattern}"))
-
-        print(filters)
 
         if filters:
             results = self.df.filter(filters)
