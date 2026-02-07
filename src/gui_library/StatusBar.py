@@ -27,6 +27,7 @@ class StatusBar(tkinter.Frame):
     def make_widgets(self):
         self.left: tkinter.Label = tkinter.Label(self)
         self.right: tkinter.Label = tkinter.Label(self)
+        self.progress = Progressbar(self, mode="determinate", length=100, orient=HORIZONTAL)
 
         self.regrid()
 
@@ -38,9 +39,6 @@ class StatusBar(tkinter.Frame):
         self.right.grid(row=0, column=1, sticky="es")
 
     def update_progress(self, numerator: int, denominator: int, message: str):
-        if not self.progress:
-            self.progress = Progressbar(self, mode="determinate", length=100, orient=HORIZONTAL)
-
         self.progress.grid(row=0, column=2, sticky="nsew")
         self.columnconfigure(2, weight=1)
 
@@ -53,9 +51,8 @@ class StatusBar(tkinter.Frame):
         self.right.config(text=f"{message}, {numerator} / {denominator} ({prog}%)")
 
     def clear_progress(self):
-        if self.progress:
-            self.progress.grid_forget()
-            self.progress.destroy()
+        self.progress.grid_forget()
+        self.progress.destroy()
 
         status_log = self.status_log
         self.destroy()
