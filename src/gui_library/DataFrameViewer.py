@@ -26,6 +26,9 @@ class DataFrameViewer(Frame):
 
         self.parent = parent
         self.df = df
+        self.drop_columns = {"iid", "parent"}.intersection(set(self.df.columns))
+
+        self.sort: dict[str, bool] = {column: False for column in self.df.columns}
 
         self.treeview = Treeview(self)
         self.treeview.grid(sticky="nsew")
@@ -58,6 +61,9 @@ class DataFrameViewer(Frame):
 
         self.df = df
 
+        if set(self.sort.keys()) != {column for column in self.df.columns}:
+            self.sort: dict[str, bool] = {column: False for column in self.df.columns}
+
         cols = [col for col in self.df.columns if col not in ["iid", "parent"]]
         cols = [(f"#{i}", col) for i, col in enumerate(cols)]
 
@@ -68,11 +74,15 @@ class DataFrameViewer(Frame):
 
         for name, text in cols:
             self.treeview.column(name, stretch=True)
-            self.treeview.heading(name, text=text)
+            self.treeview.heading(name, text=text, command=lambda col=text: self.sort_df(col))
 
         for row in self.df.iter_rows(named=True):
-            iid = row.pop("iid")
-            parent = row.pop("parent")
+            iid = uuid4().hex
+            parent = ""
+            if "iid" in row.keys():
+                iid = row.pop("iid")
+            if "parent" in row.keys():
+                parent = row.pop("parent")
 
             values = list(row.values())
             text = values[0]
@@ -89,8 +99,13 @@ class DataFrameViewer(Frame):
         self.autofit_columns()
         self.autoalign_columns()
 
+    def sort_df(self, column: str, descending: bool = False):
+        self.sort[column] = not self.sort[column]
+        self.df = self.df.sort(column, descending=self.sort[column])
+        self.update_data(df=self.df)
+
     def autofit_columns(self):
-        df = self.df.drop(["iid", "parent"])
+        df = self.df.drop(self.drop_columns)
         f = font.nametofont("TkDefaultFont")
         bf = font.Font(family="Helvetica", size=12, weight="bold")
         self.col_widths = dict()
@@ -109,7 +124,7 @@ class DataFrameViewer(Frame):
             self.treeview.column(f"#{i}", width=width)
 
     def autoalign_columns(self):
-        df = self.df.drop(["iid", "parent"])
+        df = self.df.drop(self.drop_columns)
         for i, dtype in enumerate(df.dtypes):
             if "float" in str(dtype).lower() or "int" in str(dtype).lower():
                 anchor = E
