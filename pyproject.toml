@@ -1,6 +1,6 @@
 [project]
 name = "gui_library"
-version = "0.7.0"
+version = "0.8.0"
 description = "A library of useful tkinter GUI windows"
 authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
