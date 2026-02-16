@@ -1,8 +1,7 @@
-import tkinter
-from tkinter import BooleanVar, Checkbutton, font
+from tkinter import BooleanVar, Checkbutton, Event, EventType, Tk, font
 from tkinter.constants import CENTER, END, E, W
-from tkinter.ttk import Entry, Frame, Treeview
-from typing import Any, Literal, TypeAlias
+from tkinter.ttk import Entry, Frame, Scrollbar, Treeview
+from typing import Any, Callable, Literal, TypeAlias
 from uuid import uuid4
 
 import polars
@@ -21,50 +20,62 @@ class DataFrameViewer(Frame):
         df: polars.DataFrame = polars.DataFrame(),
         iids: list | None = None,
         parents: list | None = None,
+        callback: Callable[[int, int, str], None] | None = None,
     ):
         super().__init__(parent)
 
         self.parent = parent
+        self.iids = iids
+        self.callback = callback
         self.df = df
-        self.drop_columns = {"iid", "parent"}.intersection(set(self.df.columns))
-
+        self.columns_to_drop = {"iid", "parent", "tag"}
+        self.drop_columns = self.columns_to_drop.intersection(set(self.df.columns))
+        self.df_dropped_columns = self.df.drop(self.drop_columns)
         self.sort: dict[str, bool] = {column: False for column in self.df.columns}
 
-        self.treeview = Treeview(self)
-        self.treeview.grid(sticky="nsew")
-        # self.treeview.bind("<<TreeviewSelect>>", self.treeview_select)
-        # self.treeview.bind("<Double-Button-1>", self.treeview_doubleclick)
-        # self.treeview.bind("<Button-1>", self.treeview_leftclick)
-        # self.treeview.bind("<Button-2>", self.treeview_middleclick)
-        # self.treeview.bind("<Button-3>", self.treeview_rightclick)
-        # self.treeview.bind("<FocusIn>", self.treeview_focus)
-        # self.treeview.bind("<Key>", self.treeview_keypress)
-
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
+        self.make_widgets()
+        self.make_bindings()
 
         self.update_data(df=df)
         self.autoalign_columns()
         self.autofit_columns()
 
+    def make_widgets(self):
+        self.scrollbar = Scrollbar(self, orient="vertical")
+
+        self.treeview = Treeview(self, yscrollcommand=self.scrollbar.set)
+        self.treeview.grid(row=0, column=0, rowspan=1, columnspan=1, padx=0, pady=0, sticky="nsew")
+
+        self.scrollbar.configure(command=self.treeview.yview)
+        self.scrollbar.grid(row=0, column=1, rowspan=2, columnspan=1, padx=0, pady=0, sticky="nsew")
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+
+    def make_bindings(self):
+        self.treeview.bind("<Shift-Down>", self.treeview_shift_down)
+        self.treeview.bind("<Shift-Up>", self.treeview_shift_up)
+
     def clear(self):
         self.treeview.delete(*self.treeview.get_children())
 
-    def update_data(
-        self,
-        df: polars.DataFrame,
-    ):
+    def get_dataframe_copy(self):
+        return self.df.clone()
+
+    def update_data(self, df: polars.DataFrame):
         self.clear()
 
         if df.is_empty():
             return
 
         self.df = df
+        self.drop_columns = self.columns_to_drop.intersection(set(self.df.columns))
+        self.df_dropped_columns = self.df.drop(self.drop_columns)
 
-        if set(self.sort.keys()) != {column for column in self.df.columns}:
-            self.sort: dict[str, bool] = {column: False for column in self.df.columns}
+        if set(self.sort.keys()) != {column for column in self.df_dropped_columns.columns}:
+            self.sort: dict[str, bool] = {column: False for column in self.df_dropped_columns.columns}
 
-        cols = [col for col in self.df.columns if col not in ["iid", "parent"]]
+        cols = [col for col in self.df_dropped_columns.columns]
         cols = [(f"#{i}", col) for i, col in enumerate(cols)]
 
         if len(cols) > 0:
@@ -76,13 +87,17 @@ class DataFrameViewer(Frame):
             self.treeview.column(name, stretch=True)
             self.treeview.heading(name, text=text, command=lambda col=text: self.sort_df(col))
 
-        for row in self.df.iter_rows(named=True):
+        denominator = self.df.shape[0]
+        for numerator, row in enumerate(self.df.iter_rows(named=True)):
             iid = uuid4().hex
             parent = ""
+            tag = ""
             if "iid" in row.keys():
                 iid = row.pop("iid")
             if "parent" in row.keys():
                 parent = row.pop("parent")
+            if "tag" in row.keys():
+                tag = row.pop("tag")
 
             values = list(row.values())
             text = values[0]
@@ -94,18 +109,24 @@ class DataFrameViewer(Frame):
 
             values = ["" if v is None else v for v in values]
 
-            self.treeview.insert(parent=parent, index=END, text=text, values=values, iid=iid)
+            self.treeview.insert(parent=parent, index=END, text=text, values=values, iid=iid, tags=tag)
+
+            if self.callback:
+                self.callback(numerator, denominator, "Updating Treeview")
+
+        if self.callback:
+            self.callback(denominator, denominator, "Finished Updating Treeview")
 
         self.autofit_columns()
         self.autoalign_columns()
 
-    def sort_df(self, column: str, descending: bool = False):
+    def sort_df(self, column: str):
         self.sort[column] = not self.sort[column]
         self.df = self.df.sort(column, descending=self.sort[column])
         self.update_data(df=self.df)
 
     def autofit_columns(self):
-        df = self.df.drop(self.drop_columns)
+        df = self.df_dropped_columns
         f = font.nametofont("TkDefaultFont")
         bf = font.Font(family="Helvetica", size=12, weight="bold")
         self.col_widths = dict()
@@ -124,7 +145,7 @@ class DataFrameViewer(Frame):
             self.treeview.column(f"#{i}", width=width)
 
     def autoalign_columns(self):
-        df = self.df.drop(self.drop_columns)
+        df = self.df_dropped_columns
         for i, dtype in enumerate(df.dtypes):
             if "float" in str(dtype).lower() or "int" in str(dtype).lower():
                 anchor = E
@@ -141,29 +162,34 @@ class DataFrameViewer(Frame):
     def selection(self) -> tuple[str, ...]:
         return self.treeview.selection()
 
-    def treeview_select(self, event: tkinter.Event):
-        self.parent.treeview_select(event)
+    def treeview_shift_down(self, event: Event):
+        tree: Treeview = event.widget  # type: ignore
+        cur_item = tree.focus()
 
-    def treeview_doubleclick(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event, double=True)
+        next_item = tree.next(cur_item)
 
-    def treeview_keypress(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event)
+        tree.focus(next_item)
 
-    def treeview_leftclick(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event)
+        tree.selection_add([cur_item, next_item])
 
-    def treeview_middleclick(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event)
+        # Stop propagating this event to other handlers!
+        return "break"
 
-    def treeview_rightclick(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event)
+    def treeview_shift_up(self, event: Event):
+        tree: Treeview = event.widget  # type: ignore
+        cur_item = tree.focus()
 
-    def treeview_focus(self, event: tkinter.Event):
-        self.parent.dfv_event_handler(event)
+        prev_item = tree.prev(cur_item)
 
-    def treeview_event_handler(self, treeview: Treeview, event: tkinter.Event, double: bool = False):
-        if event.type == tkinter.EventType.ButtonPress and event.num == 1 and double:
+        tree.focus(prev_item)
+
+        tree.selection_add([prev_item, cur_item])
+
+        # Stop propagating this event to other handlers!
+        return "break"
+
+    def treeview_event_handler(self, treeview: Treeview, event: Event, double: bool = False):
+        if event.type == EventType.ButtonPress and event.num == 1 and double:
             try:
                 self.entrypopup.destroy()
             except AttributeError:
@@ -222,7 +248,7 @@ class TableEntryPopup(Entry):
         self.bind("<Control-a>", self.select_all)
         self.bind("<Escape>", lambda *ignore: self.destroy())
 
-    def on_return(self, event: tkinter.Event):
+    def on_return(self, event: Event):
         rowid = self.tv.focus()
         new_val = self.get()
 
@@ -243,7 +269,7 @@ class TableEntryPopup(Entry):
         # self.tree.bind("<Key>", self.keypress_event_handler)
 
 
-class DataFrameViewerApp(tkinter.Tk):
+class DataFrameViewerApp(Tk):
     def __init__(
         self,
         title: str,
@@ -307,7 +333,7 @@ class DataFrameViewerApp(tkinter.Tk):
         self.bind("<<StatusBar.DoubleClick.Left>>", self.show_status_log)
         self.bind("<<StatusBar.DoubleClick.Right>>", self.show_status_log)
 
-    def show_status_log(self, event: tkinter.Event):
+    def show_status_log(self, event: Event):
         df = polars.DataFrame(self.status_bar.status_log)
         show_dataframeviewer(title="Status Log", df=df)
 
@@ -346,7 +372,7 @@ class DataFrameViewerApp(tkinter.Tk):
     def make_bindings(self):
         pass
 
-    def update_filter(self, event: tkinter.Event | None = None):
+    def update_filter(self, event: Event | None = None):
         filter_dict: dict = {
             "all": self.update_all_filter,
             "by_column": self.update_by_column_filter,
@@ -427,7 +453,7 @@ class DataFrameViewerApp(tkinter.Tk):
 
         self.df = self.df.insert_column(index=0, column=polars.Series(name="treepath", values=paths.values()))
 
-    def dfv_event_handler(self, event: tkinter.Event):
+    def dfv_event_handler(self, event: Event):
         pass
 
 

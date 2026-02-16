@@ -50,10 +50,17 @@ class StatusBar(tkinter.Frame):
         self.progress["value"] = prog
         self.right.config(text=f"{message}, {numerator} / {denominator} ({prog}%)")
 
+        if prog - int(prog) == 0:
+            self.master.update_idletasks()
+
+        if denominator == numerator:
+            self.clear_progress()
+
     def clear_progress(self):
         self.progress.grid_forget()
         self.progress.destroy()
 
+        self._prev_prog = 0
         status_log = self.status_log
         self.destroy()
         self.__init__(self.master)
