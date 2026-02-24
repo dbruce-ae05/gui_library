@@ -109,6 +109,7 @@ class DataFrameViewer(Frame):
 
             values = ["" if v is None else v for v in values]
 
+            # print(f'{parent=}, {text=}, {values=}, {iid=}, {tag=}')
             self.treeview.insert(parent=parent, index=END, text=text, values=values, iid=iid, tags=tag)
 
             if self.callback:
