@@ -1,8 +1,6 @@
 import tkinter
 from collections import namedtuple
 from datetime import datetime
-from functools import wraps
-from math import isclose
 from time import perf_counter
 from tkinter.constants import HORIZONTAL
 from tkinter.ttk import Progressbar
