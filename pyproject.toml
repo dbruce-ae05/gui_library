@@ -1,6 +1,6 @@
 [project]
 name = "gui_library"
-version = "0.9.0"
+version = "0.9.4"
 description = "A library of useful tkinter GUI windows"
 authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
@@ -47,8 +47,29 @@ cmd = "pipx install . --editable --force"
 script = "src.other.publish_actions:sync_with_pyproject"
 print_result = true
 
+[tool.poe.tasks.chooser]
+script = "src.gui_library.load_chooser:main"
+print_result = true
+
 [tool.poe.tasks.install]
 cmd = "poetry install"
+
+[tool.poe.tasks.only_publish]
+cmd = "poetry publish"
+
+[tool.poe.tasks.roll_version]
+cmd = "poetry version patch"
+
+[tool.poe.tasks.publish]
+sequence = [
+  "sync",
+  "ruffcheck",
+  "ruffformat",
+  "pytest",
+  "build",
+  "roll_version",
+  "only_publish",
+]
 
 [tool.poe.tasks.build]
 cmd = "poetry build"

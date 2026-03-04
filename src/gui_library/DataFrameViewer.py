@@ -301,7 +301,7 @@ class DataFrameViewerApp(Tk):
         if "iid" not in self.df.columns:
             self.df = self.df.insert_column(index=0, column=polars.Series(name="iid", values=self.iids))
 
-        if "parents" not in self.df.columns:
+        if "parent" not in self.df.columns:
             self.df = self.df.insert_column(index=1, column=polars.Series(name="parent", values=self.parents))
 
         self.update_family_tree()
@@ -448,6 +448,7 @@ class DataFrameViewerApp(Tk):
             tree.add_node(node, parent=parent)
 
         path_to_leaves = {leafpath[-1]: "|".join(leafpath[1:]) for leafpath in tree.paths_to_leaves()}
+
         paths: dict[str, str] = dict()
         for row in self.df.iter_rows(named=True):
             paths[row["iid"]] = path_to_leaves.get(row["iid"], row["iid"])
