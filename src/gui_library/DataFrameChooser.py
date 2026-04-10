@@ -45,15 +45,15 @@ class ChooserController:
         self.viewer.mainloop()
 
     def make_bindings(self):
-        self.viewer.dfv.treeview.bind("<KeyRelease-space>", self.select)
-        self.viewer.dfv.treeview.bind("<Double-Button-1>", self.select)
+        self.viewer.dfv.dfv.treeview.bind("<KeyRelease-space>", self.select)
+        self.viewer.dfv.dfv.treeview.bind("<Double-Button-1>", self.select)
 
     def select(self, event: tkinter.Event):
-        selections: tuple = self.viewer.dfv.treeview.selection()
+        selections: tuple = self.viewer.dfv.dfv.treeview.selection()
         self.model.select(selections)
 
         for selection in selections:
-            self.viewer.dfv.treeview.item(selection, values=self.model.get_values(selection))
+            self.viewer.dfv.dfv.treeview.item(selection, values=self.model.get_values(selection))
 
         self.viewer.df = self.model.df
 

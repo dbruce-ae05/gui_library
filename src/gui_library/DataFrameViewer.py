@@ -270,17 +270,17 @@ class TableEntryPopup(Entry):
         # self.tree.bind("<Key>", self.keypress_event_handler)
 
 
-class DataFrameViewerApp(Tk):
+class DataFrameViewerFilter(Frame):
     def __init__(
         self,
-        title: str,
+        parent,
         df: polars.DataFrame,
         iids: list | None = None,
         parents: list | None = None,
         filters: DataFrameViewerFilterTypes = "all",
     ):
-        super().__init__()
-        self.title(title)
+        super().__init__(parent)
+        self.parent = parent
         self.df = df
         self.iids = iids
         self.parents = parents
@@ -324,19 +324,7 @@ class DataFrameViewerApp(Tk):
 
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
-        self.rowconfigure(2, weight=0)
         self.columnconfigure(0, weight=1)
-
-        self.status_bar = StatusBar(self)
-        self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
-        self.status_bar.update_status("Initialized Status Bar")
-
-        self.bind("<<StatusBar.DoubleClick.Left>>", self.show_status_log)
-        self.bind("<<StatusBar.DoubleClick.Right>>", self.show_status_log)
-
-    def show_status_log(self, event: Event):
-        df = polars.DataFrame(self.status_bar.status_log)
-        show_dataframeviewer(title="Status Log", df=df)
 
     def make_all_filters(self):
         self.checkmarks: dict[str, Checkbutton] = dict()
@@ -398,7 +386,6 @@ class DataFrameViewerApp(Tk):
         else:
             results = polars.DataFrame()
 
-        self.status_bar.update_status(f"{results.shape[0]} matches out of {self.df.shape[0]} lines")
         self.dfv.update_data(df=results)
 
     def update_all_filter(self) -> polars.DataFrame:
@@ -451,12 +438,71 @@ class DataFrameViewerApp(Tk):
 
         paths: dict[str, str] = dict()
         for row in self.df.iter_rows(named=True):
-            paths[row["iid"]] = path_to_leaves.get(row["iid"], row["iid"])
+            paths[row["iid"]] = path_to_leaves.get(row["iid"], row["iid"])  # type: ignore
 
         self.df = self.df.insert_column(index=0, column=polars.Series(name="treepath", values=paths.values()))
 
     def dfv_event_handler(self, event: Event):
         pass
+
+
+class DataFrameViewerApp(Tk):
+    def __init__(
+        self,
+        title: str,
+        df: polars.DataFrame,
+        iids: list | None = None,
+        parents: list | None = None,
+        filters: DataFrameViewerFilterTypes = "all",
+    ):
+        super().__init__()
+        self.title(title)
+        self.df = df
+        self.iids = iids
+        self.parents = parents
+        self.filters = filters
+
+        if self.iids is None:
+            self.iids = [str(uuid4()) for _ in range(self.df.shape[0])]
+
+        if self.parents is None:
+            self.parents = ["" for _ in range(self.df.shape[0])]
+
+        if len(self.iids) != self.df.shape[0]:
+            raise ValueError(f"length of iids: {len(self.iids)}, expected: {self.df.shape[0]}")
+
+        if len(self.parents) != self.df.shape[0]:
+            raise ValueError(f"length of parents: {len(self.parents)}, expected: {self.df.shape[0]}")
+
+        if "iid" not in self.df.columns:
+            self.df = self.df.insert_column(index=0, column=polars.Series(name="iid", values=self.iids))
+
+        if "parent" not in self.df.columns:
+            self.df = self.df.insert_column(index=1, column=polars.Series(name="parent", values=self.parents))
+
+        self.make_widgets()
+
+    # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
+
+    def make_widgets(self):
+        self.dfv = DataFrameViewerFilter(self, df=self.df, iids=self.iids, parents=self.parents, filters="all")
+        self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns), sticky="nsew", padx=5, pady=2)
+
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=0)
+        self.columnconfigure(0, weight=1)
+
+        self.status_bar = StatusBar(self)
+        self.status_bar.grid(row=2, column=0, rowspan=1, columnspan=len(self.df.columns) + 1, sticky="nsew")
+        self.status_bar.update_status("Initialized Status Bar")
+
+        self.bind("<<StatusBar.DoubleClick.Left>>", self.show_status_log)
+        self.bind("<<StatusBar.DoubleClick.Right>>", self.show_status_log)
+
+    def show_status_log(self, event: Event):
+        df = polars.DataFrame(self.status_bar.status_log)
+        show_dataframeviewer(title="Status Log", df=df)
 
 
 def show_dataframeviewer(
