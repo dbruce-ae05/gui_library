@@ -109,7 +109,7 @@ class DataFrameViewer(Frame):
 
             values = ["" if v is None else v for v in values]
 
-            # print(f'{parent=}, {text=}, {values=}, {iid=}, {tag=}')
+            # print(f"{iid=}, {parent=}, {text=}, {values=}, {tag=}")
             self.treeview.insert(parent=parent, index=END, text=text, values=values, iid=iid, tags=tag)
 
             if self.callback:
@@ -304,11 +304,10 @@ class DataFrameViewerFilter(Frame):
         if "parent" not in self.df.columns:
             self.df = self.df.insert_column(index=1, column=polars.Series(name="parent", values=self.parents))
 
-        self.update_family_tree()
-
         self.make_widgets()
         self.make_bindings()
-        self.update_filter()
+
+        self.update_data(df=self.df)
 
     # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
 
@@ -333,7 +332,13 @@ class DataFrameViewerFilter(Frame):
         self.entry: Entry = Entry(master=self)
         self.entry.grid(row=0, column=0, rowspan=1, columnspan=1, sticky="nsew", padx=5, pady=2)
 
-        df = self.df.drop(["iid", "parent", "treepath"])
+        drop_cols = ["iid", "parent", "treepath"]
+        df = self.df
+        for drop_col in drop_cols:
+            if drop_col in self.df.columns:
+                df = df.drop(drop_col)
+
+        # df = self.df.drop(["iid", "parent", "treepath"])
         for i, col in enumerate(df.columns):
             self.checkmarkvalues[col] = BooleanVar(self)
             self.checkmarks[col] = Checkbutton(
@@ -368,7 +373,10 @@ class DataFrameViewerFilter(Frame):
         }
         results = filter_dict[self.filters]()
 
-        treepaths = set(results["treepath"].to_list())
+        treepaths: set = set()
+        if "treepath" in results:
+            treepaths = set(results["treepath"].to_list())
+
         keys: list[str] = list()
         treepath: str
         for treepath in treepaths:
@@ -377,32 +385,36 @@ class DataFrameViewerFilter(Frame):
         df_keys: polars.DataFrame = polars.DataFrame({"iid": keys})
 
         keys = list(set(keys))
-        # results = self.df.filter(polars.col("iid").str.contains_any(keys))
-        # results = self.df.filter(polars.col("iid").is_in(keys))
+        results = self.df.filter(polars.col("iid").str.contains_any(keys))
+        results = self.df.filter(polars.col("iid").is_in(keys))
 
         if results.shape[0]:
+            df_keys = df_keys.with_columns(polars.col("iid").fill_null("None"))
+            df_keys = df_keys.with_columns(polars.col("iid").cast(polars.String))
             results = self.df.join(df_keys, on="iid", how="inner")
-            results = results.drop(["treepath"])
+
+            print(results)
+
+            if "treepath" in results.columns:
+                results = results.drop(["treepath"])
         else:
             results = polars.DataFrame()
 
         self.dfv.update_data(df=results)
 
+    def update_data(self, df: polars.DataFrame):
+        self.df = df
+        self.update_family_tree()
+        self.dfv.update_data(df.drop("treepath"))
+
     def update_all_filter(self) -> polars.DataFrame:
         pattern = self.entry.get()
+        result = self.df
 
         if not pattern:
-            return self.df
+            return result
 
-        filter_columns = [key for key, value in self.checkmarkvalues.items() if value.get()]
-
-        results = self.df
-        if pattern:
-            results = self.df.filter(
-                polars.any_horizontal(polars.col(filter_columns).cast(polars.String).str.contains(f"(?i){pattern}"))
-            )
-
-        return results
+        return self.df.filter(polars.any_horizontal(polars.all().cast(polars.String).str.contains(f"(?i){pattern}")))
 
     def update_by_column_filter(self) -> polars.DataFrame:
         patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
@@ -434,11 +446,31 @@ class DataFrameViewerFilter(Frame):
             parent = row["parent"]
             tree.add_node(node, parent=parent)
 
-        path_to_leaves = {leafpath[-1]: "|".join(leafpath[1:]) for leafpath in tree.paths_to_leaves()}
+        # path_to_leaves = {leafpath[-1]: "|".join(leafpath[1:]) for leafpath in tree.paths_to_leaves()}
+
+        def get_treepath(iid: str) -> str:
+            branch: list = list()
+            for branch in tree.paths_to_leaves():
+                if iid in branch:
+                    break
+
+            results: list = list()
+            for leaf in branch:
+                results.append(leaf)
+                if iid == leaf:
+                    break
+
+            print(results)
+            result = "|".join(results)
+            if result[0] == "|":
+                result = result[1:]
+
+            return result
 
         paths: dict[str, str] = dict()
         for row in self.df.iter_rows(named=True):
-            paths[row["iid"]] = path_to_leaves.get(row["iid"], row["iid"])  # type: ignore
+            # paths[row["iid"]] = path_to_leaves.get(row["iid"], row["iid"])  # type: ignore
+            paths[row["iid"]] = get_treepath(row["iid"])
 
         self.df = self.df.insert_column(index=0, column=polars.Series(name="treepath", values=paths.values()))
 
@@ -450,7 +482,7 @@ class DataFrameViewerApp(Tk):
     def __init__(
         self,
         title: str,
-        df: polars.DataFrame,
+        df: polars.DataFrame = polars.DataFrame(),
         iids: list | None = None,
         parents: list | None = None,
         filters: DataFrameViewerFilterTypes = "all",
