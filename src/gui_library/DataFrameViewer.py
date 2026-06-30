@@ -309,8 +309,6 @@ class DataFrameViewerFilter(Frame):
 
         self.update_data(df=self.df)
 
-    # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
-
     def make_widgets(self):
         filter_dict: dict = {
             "all": self.make_all_filters,
@@ -385,20 +383,22 @@ class DataFrameViewerFilter(Frame):
         df_keys: polars.DataFrame = polars.DataFrame({"iid": keys})
 
         keys = list(set(keys))
+
+        if not keys:
+            self.dfv.update_data(df=polars.DataFrame())
+            return
+
         results = self.df.filter(polars.col("iid").str.contains_any(keys))
-        results = self.df.filter(polars.col("iid").is_in(keys))
+        results = results.filter(polars.col("iid").is_in(keys))
 
         if results.shape[0]:
             df_keys = df_keys.with_columns(polars.col("iid").fill_null("None"))
             df_keys = df_keys.with_columns(polars.col("iid").cast(polars.String))
-            results = self.df.join(df_keys, on="iid", how="inner")
 
-            print(results)
+            results = self.df.join(df_keys, on="iid", how="semi")
 
             if "treepath" in results.columns:
                 results = results.drop(["treepath"])
-        else:
-            results = polars.DataFrame()
 
         self.dfv.update_data(df=results)
 
@@ -460,7 +460,7 @@ class DataFrameViewerFilter(Frame):
                 if iid == leaf:
                     break
 
-            print(results)
+            # print(results)
             result = "|".join(results)
             if result[0] == "|":
                 result = result[1:]
