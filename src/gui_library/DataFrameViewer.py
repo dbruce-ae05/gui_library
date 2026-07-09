@@ -12,6 +12,8 @@ from gui_library.StatusBar import StatusBar
 
 DataFrameViewerFilterTypes: TypeAlias = Literal["all", "by_column"]
 
+DATFRAMEFILTER_FILTER_UPDATED = "<<DataFrameViewerFilter-FilterUpdate>>"
+
 
 class DataFrameViewer(Frame):
     def __init__(
@@ -401,6 +403,7 @@ class DataFrameViewerFilter(Frame):
                 results = results.drop(["treepath"])
 
         self.dfv.update_data(df=results)
+        self.event_generate(DATFRAMEFILTER_FILTER_UPDATED)
 
     def update_data(self, df: polars.DataFrame):
         self.df = df
