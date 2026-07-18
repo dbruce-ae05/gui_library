@@ -408,6 +408,12 @@ class DataFrameViewerFilter(Frame):
     def update_data(self, df: polars.DataFrame):
         self.df = df
 
+        if "iid" not in self.df.columns:
+            self.df = self.df.with_columns(polars.Series("iid", [uuid4().hex for _ in range(self.df.shape[0])]))
+
+        if "parent" not in self.df.columns:
+            self.df = self.df.with_columns(polars.Series("parent", [str() for _ in range(self.df.shape[0])]))
+
         self.update_family_tree()
         self.dfv.update_data(df.drop("treepath"))
 
