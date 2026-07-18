@@ -415,7 +415,7 @@ class DataFrameViewerFilter(Frame):
             self.df = self.df.with_columns(polars.Series("parent", [str() for _ in range(self.df.shape[0])]))
 
         self.update_family_tree()
-        self.dfv.update_data(df.drop("treepath"))
+        self.dfv.update_data(self.df.drop("treepath"))
 
     def update_all_filter(self) -> polars.DataFrame:
         pattern = self.entry.get()
