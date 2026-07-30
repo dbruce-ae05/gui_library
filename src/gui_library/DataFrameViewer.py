@@ -426,10 +426,12 @@ class DataFrameViewerFilter(Frame):
             return result
 
         filter_df = self.df.with_columns(
-            polars.concat_str([polars.col(col) for col in self.df.columns]).alias("concatenate")
+            polars.concat_str([polars.col(col) for col in self.df.columns], separator=" ", ignore_nulls=True).alias(
+                "concatenate"
+            )
         )
         # return self.df.filter(polars.any_horizontal(polars.all().cast(polars.String).str.contains(f"(?i){pattern}")))
-        return filter_df.filter(polars.col("concatenate").str.contains(f"(?i){pattern}"))
+        return filter_df.filter(polars.col("concatenate").str.contains(f"(?i){pattern}")).drop("concatenate")
 
     def update_by_column_filter(self) -> polars.DataFrame:
         patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
