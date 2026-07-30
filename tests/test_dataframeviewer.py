@@ -46,7 +46,25 @@ def test_dataframeviewer_nested_dataset():
     # )
 
     print(df)
-    app = DataFrameViewerApp(title="Test")
+    app = DataFrameViewerApp(title="Test By Column", filters="by_column")
+    app.dfv.update_data(df)
+    # app.dfv.dfv.update_data(df)
+    app.mainloop()
+
+
+def test_dataframeviewer_nested_data_filter_all():
+    path = Path(__file__).parent.joinpath("test_nested.csv")
+
+    df = polars.read_csv(path).fill_null(str())
+
+    # show_dataframeviewer(
+    #     title="Test",
+    #     df=df,
+    #     filter="all",
+    # )
+
+    print(df)
+    app = DataFrameViewerApp(title="Test All", filters="all")
     app.dfv.update_data(df)
     # app.dfv.dfv.update_data(df)
     app.mainloop()

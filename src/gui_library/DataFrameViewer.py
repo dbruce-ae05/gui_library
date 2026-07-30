@@ -325,6 +325,15 @@ class DataFrameViewerFilter(Frame):
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
 
+    def drop_cols(self) -> polars.DataFrame:
+        drop_cols = ["iid", "parent", "treepath"]
+        df = self.df
+        for drop_col in drop_cols:
+            if drop_col in self.df.columns:
+                df = df.drop(drop_col)
+
+        return df
+
     def make_all_filters(self):
         self.checkmarks: dict[str, Checkbutton] = dict()
         self.checkmarkvalues: dict[str, BooleanVar] = dict()
@@ -332,14 +341,7 @@ class DataFrameViewerFilter(Frame):
         self.entry: Entry = Entry(master=self)
         self.entry.grid(row=0, column=0, rowspan=1, columnspan=1, sticky="nsew", padx=5, pady=2)
 
-        drop_cols = ["iid", "parent", "treepath"]
-        df = self.df
-        for drop_col in drop_cols:
-            if drop_col in self.df.columns:
-                df = df.drop(drop_col)
-
-        # df = self.df.drop(["iid", "parent", "treepath"])
-        for i, col in enumerate(df.columns):
+        for i, col in enumerate(self.drop_cols().columns):
             self.checkmarkvalues[col] = BooleanVar(self)
             self.checkmarks[col] = Checkbutton(
                 self,
@@ -356,8 +358,7 @@ class DataFrameViewerFilter(Frame):
     def make_by_column_filters(self):
         self.column_entries: dict[str, Entry] = dict()
 
-        df = self.df.drop(["iid", "parent", "treepath"])
-        for i, col in enumerate(df.columns):
+        for i, col in enumerate(self.drop_cols().columns):
             self.column_entries[col] = Entry(master=self)  # , width=self.dfv.col_widths[col])
             self.column_entries[col].grid(row=0, column=i, rowspan=1, columnspan=1, padx=0, pady=2, sticky="nsew")
             self.columnconfigure(i, weight=1)
@@ -424,7 +425,11 @@ class DataFrameViewerFilter(Frame):
         if not pattern:
             return result
 
-        return self.df.filter(polars.any_horizontal(polars.all().cast(polars.String).str.contains(f"(?i){pattern}")))
+        filter_df = self.df.with_columns(
+            polars.concat_str([polars.col(col) for col in self.df.columns]).alias("concatenate")
+        )
+        # return self.df.filter(polars.any_horizontal(polars.all().cast(polars.String).str.contains(f"(?i){pattern}")))
+        return filter_df.filter(polars.col("concatenate").str.contains(f"(?i){pattern}"))
 
     def update_by_column_filter(self) -> polars.DataFrame:
         patterns = {key: value.get() for key, value in self.column_entries.items() if value.get()}
@@ -502,7 +507,7 @@ class DataFrameViewerApp(Tk):
         self.df = df
         self.iids = iids
         self.parents = parents
-        self.filters = filters
+        self.filters: DataFrameViewerFilterTypes = filters
 
         if self.iids is None:
             self.iids = [str(uuid4()) for _ in range(self.df.shape[0])]
@@ -527,7 +532,7 @@ class DataFrameViewerApp(Tk):
     # TODO: add feature for returning the selected rows in the viewer - also add some indicator for what rows are selected
 
     def make_widgets(self):
-        self.dfv = DataFrameViewerFilter(self, df=self.df, iids=self.iids, parents=self.parents, filters="all")
+        self.dfv = DataFrameViewerFilter(self, df=self.df, iids=self.iids, parents=self.parents, filters=self.filters)
         self.dfv.grid(row=1, column=0, rowspan=1, columnspan=len(self.df.columns), sticky="nsew", padx=5, pady=2)
 
         self.rowconfigure(0, weight=0)
