@@ -1,12 +1,14 @@
-from tkinter import BooleanVar, Checkbutton, Event, EventType, Tk, font
+from tkinter import BooleanVar, Event, EventType, font
 from tkinter.constants import CENTER, END, E, W
-from tkinter.ttk import Entry, Frame, Scrollbar, Treeview
 from typing import Any, Callable, Literal, TypeAlias
 from uuid import uuid4
 
 import polars
 from treelib.node import Node
 from treelib.tree import Tree
+
+# from tkinter.ttk import Entry, Frame, Scrollbar, Treeview
+from ttkbootstrap import Checkbutton, Entry, Frame, Scrollbar, Treeview, Window
 
 from gui_library.StatusBar import StatusBar
 
@@ -349,7 +351,8 @@ class DataFrameViewerFilter(Frame):
                 variable=self.checkmarkvalues[col],
                 command=self.update_filter,
             )
-            self.checkmarks[col].select()
+            self.checkmarkvalues[col].set(True)
+            # self.checkmarks[col].select()
             self.checkmarks[col].grid(row=0, column=i + 1, rowspan=1, columnspan=1, padx=5, pady=2, sticky="nsew")
             self.columnconfigure(i + 1, weight=0)
 
@@ -495,7 +498,7 @@ class DataFrameViewerFilter(Frame):
         pass
 
 
-class DataFrameViewerApp(Tk):
+class DataFrameViewerApp(Window):
     def __init__(
         self,
         title: str,
@@ -504,8 +507,8 @@ class DataFrameViewerApp(Tk):
         parents: list | None = None,
         filters: DataFrameViewerFilterTypes = "all",
     ):
-        super().__init__()
-        self.title(title)
+        super().__init__(title=title)
+        # self.title(title)
         self.df = df
         self.iids = iids
         self.parents = parents

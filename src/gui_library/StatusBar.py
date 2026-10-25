@@ -3,14 +3,15 @@ from collections import namedtuple
 from datetime import datetime
 from time import perf_counter
 from tkinter.constants import HORIZONTAL
-from tkinter.ttk import Progressbar
 from typing import Literal, TypeAlias
+
+from ttkbootstrap import Frame, Label, Progressbar
 
 StatusBarSide: TypeAlias = Literal["left", "right"]
 StatusBarStatus = namedtuple("status", ["timestamp", "message", "side", "style"])
 
 
-class StatusBar(tkinter.Frame):
+class StatusBar(Frame):
     def __init__(self, master, progress_step_size: int = 5):
         super().__init__(master)
 
@@ -25,11 +26,10 @@ class StatusBar(tkinter.Frame):
         self.status_log: list = list()
 
         self.make_widgets()
-        # self.update_status("Status Bar Initialized!")
 
     def make_widgets(self):
-        self.left: tkinter.Label = tkinter.Label(self)
-        self.right: tkinter.Label = tkinter.Label(self)
+        self.left: Label = Label(self)
+        self.right: Label = Label(self)
         self.progress = Progressbar(self, mode="determinate", length=100, orient=HORIZONTAL)
         self.progress["value"] = 0
 
@@ -113,17 +113,3 @@ class StatusBar(tkinter.Frame):
 
     def right_double_click(self, event: tkinter.Event):
         self.master.event_generate("<<StatusBar.DoubleClick.Right>>")
-
-
-#
-# def log_to_status_bar(path_to_status_bar: list[str]):
-#     def inner(func):
-#         @wraps(func)
-#         def wrapper(*args, **kwargs):
-#             status_bar.start_task()
-#             result = func(*args, **kwargs)
-#             status_bar.finish_task(f"{func.__qualname__}")
-#             status_bar.update_status(f'')
-#             return result
-#         return func
-#     return inner

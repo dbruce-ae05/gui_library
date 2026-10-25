@@ -1,11 +1,11 @@
 [project]
 name = "gui_library"
-version = "0.11.6"
+version = "0.12.1"
 description = "A library of useful tkinter GUI windows"
 authors = [{ name = "dbruce-ae05", email = "dbruce.ae05@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10, <3.15"
-dependencies = ["treelib (>=1.8.0,<2.0.0)"]
+dependencies = ["treelib (>=1.8.0,<2.0.0)", "ttkbootstrap (>=2.2.5,<3.0.0)"]
 [tool.poetry]
 packages = [{ include = "gui_library", from = "src" }]
 
